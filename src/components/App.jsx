@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
 
 import ContactForm from './ContactForm/ContactForm';
@@ -6,45 +6,25 @@ import Filter from './Filter/Filter';
 import ContactList from './ContactList/ContactList';
 import Notification from './Notification/Notification';
 
-const CONTACTS = 'contacts';
+function App() {
+  const CONTACTS = 'contacts';
 
-export class App extends Component {
-  state = {
-    contacts: [],
-    filter: '',
-  };
+  const [contacts, setContacts] = useState(
+    () => JSON.parse(localStorage.getItem(CONTACTS)) || []
+  );
+  const [filter, setFilter] = useState('');
+  const isFirstRender = useRef(true);
 
-  componentDidMount() {
-    const localData = localStorage.getItem(CONTACTS);
-
-    if (localData)
-      this.setState({
-        contacts: JSON.parse(localData),
-      });
-  }
-
-  componentDidUpdate(prevProps, prevState) {
-    if (prevState.contacts !== this.state.contacts) {
-      localStorage.setItem(CONTACTS, JSON.stringify(this.state.contacts));
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }
-  handleFilter = evt => {
-    const { value } = evt.target;
 
-    this.setState({
-      filter: value,
-    });
-  };
+    localStorage.setItem(CONTACTS, JSON.stringify(contacts));
+  }, [contacts]);
 
-  deleteContact = contactId => {
-    this.setState(prevEvent => ({
-      contacts: prevEvent.contacts.filter(({ id }) => id !== contactId),
-    }));
-  };
-
-  addContact = data => {
-    const { contacts } = this.state;
-
+  const addContact = data => {
     const contact = {
       id: nanoid(),
       name: data.name,
@@ -56,46 +36,51 @@ export class App extends Component {
       return;
     }
 
-    this.setState(prevEvent => ({
-      contacts: [contact, ...prevEvent.contacts],
-    }));
+    setContacts(prevContacts => [contact, ...prevContacts]);
   };
 
-  getVisibleContacts = () => {
-    const normalizedFilter = this.state.filter.toLowerCase();
-    return this.state.contacts.filter(({ name, number }) => {
+  const deleteContact = contactId => {
+    setContacts(prevContacts =>
+      prevContacts.filter(({ id }) => id !== contactId)
+    );
+  };
+
+  const handleFilter = evt => {
+    const { value } = evt.target;
+
+    setFilter(value);
+  };
+
+  const getVisibleContacts = () => {
+    const normalizedFilter = filter.toLowerCase();
+    return contacts.filter(({ name, number }) => {
       return (
-        number.split('-').join('').includes(this.state.filter) ||
-        number.includes(this.state.filter) ||
+        number.split('-').join('').includes(filter) ||
+        number.includes(filter) ||
         name.toLowerCase().includes(normalizedFilter)
       );
     });
   };
 
-  render() {
-    const visibleContacts = this.getVisibleContacts();
+  return (
+    <div>
+      <h2>Phonebook</h2>
+      <ContactForm onSubmit={addContact}></ContactForm>
+      <h2>Contacts</h2>
 
-    return (
-      <div>
-        <h2>Phonebook</h2>
-        <ContactForm onSubmit={this.addContact}></ContactForm>
-        <h2>Contacts</h2>
-
-        {visibleContacts.length > 0 ? (
-          <>
-            <Filter
-              filter={this.state.filter}
-              handleFilter={this.handleFilter}
-            ></Filter>
-            <ContactList
-              contacts={visibleContacts}
-              deleteContact={this.deleteContact}
-            ></ContactList>
-          </>
-        ) : (
-          <Notification message="You don't have any contact"></Notification>
-        )}
-      </div>
-    );
-  }
+      {contacts.length > 0 ? (
+        <>
+          <Filter filter={filter} handleFilter={handleFilter}></Filter>
+          <ContactList
+            contacts={getVisibleContacts()}
+            deleteContact={deleteContact}
+          ></ContactList>
+        </>
+      ) : (
+        <Notification message="You don't have any contact"></Notification>
+      )}
+    </div>
+  );
 }
+
+export default App;
